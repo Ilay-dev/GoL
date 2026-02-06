@@ -1,4 +1,7 @@
-#Game of Life
+# Game of Life
+
+![Screencast_20260206_233744](https://github.com/user-attachments/assets/289f16fb-f5cb-4447-9e47-07c29eca9bbc)
+
 
 A high-performance, infinite-grid implementation of Conway's Game of Life. Built with vanilla JavaScript and HTML5 Canvas, featuring a dark architectural aesthetic and liquid glass UI.
 
