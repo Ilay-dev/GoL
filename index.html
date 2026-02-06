@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game of Life | Infinite Canvas</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <!-- Intro / Keybinds Modal -->
+    <div id="intro-modal">
+        <div class="modal-content">
+            <h1>The Game of Life</h1>
+            <div class="subtitle">Conway's Cellular Automaton</div>
+            
+            <div class="keybind-grid">
+                <div class="keybind-row">
+                    <span>Zeichnen / Löschen</span>
+                    <span class="key-badge">LMB</span>
+                </div>
+                <div class="keybind-row">
+                    <span>Canvas bewegen</span>
+                    <span class="key-badge">MMB + Drag</span>
+                </div>
+                <div class="keybind-row">
+                    <span>Zoom</span>
+                    <span class="key-badge">Scroll</span>
+                </div>
+            </div>
+
+            <button class="primary-btn" id="startBtn">Simulation starten</button>
+        </div>
+    </div>
+
+    <!-- Render Canvas -->
+    <canvas id="gridCanvas"></canvas>
+
+    <!-- Liquid Control Bar -->
+    <div id="controls" style="display:none;">
+        <div class="control-group">
+            <button class="control-btn" id="playPauseBtn" title="Play/Pause">
+                <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+
+            <button class="control-btn danger" id="clearBtn" title="Alles löschen">
+                <svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+            </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="speed-container">
+            <div class="speed-trigger" id="speedLabel">x1 Speed</div>
+            <div id="speed-menu">
+                <button class="speed-opt active" data-speed="1">x1</button>
+                <button class="speed-opt" data-speed="5">x5</button>
+                <button class="speed-opt" data-speed="10">x10</button>
+                <button class="speed-opt" data-speed="20">x20</button>
+                <button class="speed-opt" data-speed="50">x50</button>
+                <button class="speed-opt" data-speed="100">x100</button>
+                <button class="speed-opt" data-speed="500">x500</button>
+                <button class="speed-opt" data-speed="1000">x1000</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
