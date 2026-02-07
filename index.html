@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game of Life | Infinite Canvas</title>
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
+    <link rel="icon" href="icon.png" type="image/png">
 </head>
 <body>
 
@@ -13,7 +14,7 @@
     <div id="intro-modal">
         <div class="modal-content">
             <h1>The Game of Life</h1>
-            <div class="subtitle">Infinite Canvas Automaton</div>
+            <div class="subtitle">Conway's Cellular Automaton</div>
             
             <div class="keybind-grid">
                 <div class="keybind-row">
@@ -21,20 +22,16 @@
                     <span class="key-badge">LMB</span>
                 </div>
                 <div class="keybind-row">
-                    <span>Pan View</span>
-                    <span class="key-badge">MMB / Space+Drag</span>
+                    <span>Move Canvas</span>
+                    <span class="key-badge">MMB + Drag</span>
                 </div>
                 <div class="keybind-row">
                     <span>Zoom</span>
                     <span class="key-badge">Scroll</span>
                 </div>
-                <div class="keybind-row">
-                    <span>Play / Pause</span>
-                    <span class="key-badge">Spacebar</span>
-                </div>
             </div>
 
-            <button class="primary-btn" id="startBtn">Enter Simulation</button>
+            <button class="primary-btn" id="startBtn">Start Simulation</button>
         </div>
     </div>
 
@@ -44,16 +41,16 @@
     <!-- Liquid Control Bar -->
     <div id="controls" style="display:none;">
         <div class="control-group">
-            <button class="control-btn" id="playPauseBtn" title="Play/Pause (Space)">
+            <button class="control-btn" id="playPauseBtn" title="Play/Pause">
                 <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             </button>
 
-            <button class="control-btn danger" id="clearBtn" title="Clear Grid">
+            <button class="control-btn danger" id="clearBtn" title="Delete all">
                 <svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
             </button>
 
-            <!-- Brush Control -->
+            <!-- Brush Control (Eingefügt) -->
             <div class="brush-container">
                 <button class="control-btn" id="brushBtn" title="Brush Size">
                     <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12c.4-.4.4-1.03.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
@@ -67,6 +64,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
         <div class="divider"></div>
