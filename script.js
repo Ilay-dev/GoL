@@ -1,4 +1,7 @@
-// --- 1. Global State & Constants ---
+/**
+ * 1. GLOBAL STATE & CONSTANTS
+ * Positioned at the top to prevent initialization errors.
+ */
 const canvas = document.getElementById('gridCanvas');
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 
@@ -7,7 +10,7 @@ let isPlaying = false;
 let simulationSpeed = 1;
 let lastTickTime = 0;
 
-// Persistent cache for heavy objects
+// Optimized cache for gradients (recalculated only on resize)
 const renderCache = {
     width: 0,
     height: 0,
@@ -15,25 +18,25 @@ const renderCache = {
     vignette: null
 };
 
+// Viewport & Interaction
 let scale = 20;
 let offsetX = 0, offsetY = 0;
-
 let isDragging = false, dragStartX = 0, dragStartY = 0;
 let isDrawing = false, drawMode = true, brushSize = 1, lastDrawPos = null;
 
 /** 
- * Sparse Matrix using a Set of 32-bit Integers (Very Fast).
- * Range: -32,768 to 32,767 for both X and Y.
+ * Sparse Matrix using a Set of 32-bit Integers (High Performance).
+ * Packs X and Y into one number.
  */
 let liveCells = new Set();
 
-// Bitwise Packing: Converts coordinates (x,y) into a single 32-bit number
 const pack = (x, y) => ((x + 0x8000) << 16) | ((y + 0x8000) & 0xFFFF);
 const unpackX = (key) => (key >>> 16) - 0x8000;
 const unpackY = (key) => (key & 0xFFFF) - 0x8000;
 
-// --- 2. UI Elements & Event Listeners ---
-
+/**
+ * 2. UI ELEMENTS & MENU LOGIC
+ */
 const introModal = document.getElementById('intro-modal');
 const startBtn = document.getElementById('startBtn');
 const controls = document.getElementById('controls');
@@ -41,76 +44,100 @@ const playPauseBtn = document.getElementById('playPauseBtn');
 const iconPlay = document.getElementById('icon-play');
 const iconPause = document.getElementById('icon-pause');
 const clearBtn = document.getElementById('clearBtn');
+
 const speedLabel = document.getElementById('speedLabel');
+const speedMenu = document.getElementById('speed-menu');
+const brushBtn = document.getElementById('brushBtn');
+const brushMenu = document.getElementById('brush-menu');
 const speedOpts = document.querySelectorAll('.speed-opt');
 
-// Start Simulation Button (Intro)
+// Start Simulation
 startBtn.addEventListener('click', () => {
-    introModal.style.display = 'none';
-    controls.style.display = 'flex';
-    isPlaying = true;
+    introModal.style.opacity = '0';
+    setTimeout(() => {
+        introModal.style.display = 'none';
+        controls.style.display = 'flex';
+        isPlaying = true;
+    }, 400);
 });
 
-// Play/Pause
-playPauseBtn.addEventListener('click', () => {
+// Play / Pause
+playPauseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     isPlaying = !isPlaying;
     iconPlay.style.display = isPlaying ? 'none' : 'block';
     iconPause.style.display = isPlaying ? 'block' : 'none';
 });
 
-// Clear
-clearBtn.addEventListener('click', () => {
+// Clear All
+clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     liveCells.clear();
-    if (!isPlaying) draw();
+    draw();
+});
+
+/**
+ * MENU TOGGLES (Fixed to match CSS .open class)
+ */
+speedLabel.addEventListener('click', (e) => {
+    e.stopPropagation();
+    speedMenu.classList.toggle('open'); // Matches CSS
+    brushMenu.classList.remove('open');
+});
+
+brushBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    brushMenu.classList.toggle('open'); // Matches CSS
+    speedMenu.classList.remove('open');
+});
+
+// Close menus when clicking on the canvas
+canvas.addEventListener('mousedown', () => {
+    speedMenu.classList.remove('open');
+    brushMenu.classList.remove('open');
 });
 
 // Speed Selection
 speedOpts.forEach(opt => {
-    opt.addEventListener('click', () => {
+    opt.addEventListener('click', (e) => {
+        e.stopPropagation();
         speedOpts.forEach(o => o.classList.remove('active'));
         opt.classList.add('active');
         simulationSpeed = parseInt(opt.dataset.speed);
         speedLabel.textContent = `x${simulationSpeed} Speed`;
+        speedMenu.classList.remove('open');
     });
 });
 
-// Brush Logic
+// Brush Controls
 const brushSlider = document.getElementById('brushSlider');
 const brushInput = document.getElementById('brushInput');
-brushSlider.addEventListener('input', (e) => {
-    brushSize = parseInt(e.target.value);
-    brushInput.value = brushSize;
-});
-brushInput.addEventListener('input', (e) => {
-    brushSize = parseInt(e.target.value);
+const updateBrush = (val) => {
+    brushSize = Math.max(1, Math.min(50, parseInt(val) || 1));
     brushSlider.value = brushSize;
-});
+    brushInput.value = brushSize;
+};
+brushSlider.addEventListener('input', (e) => updateBrush(e.target.value));
+brushInput.addEventListener('input', (e) => updateBrush(e.target.value));
 
-// --- 3. Core Functions (Resize, Logic, Draw) ---
-
+/**
+ * 3. CORE ENGINE
+ */
 function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
     canvas.width = width;
     canvas.height = height;
-    
-    if (offsetX === 0) {
-        offsetX = width / 2;
-        offsetY = height / 2;
-    }
+    if (offsetX === 0) { offsetX = width / 2; offsetY = height / 2; }
     draw();
 }
-
 window.addEventListener('resize', resize);
 resize();
 
 function tick() {
     const neighborCounts = new Map();
-    
     for (const key of liveCells) {
-        const x = unpackX(key);
-        const y = unpackY(key);
-        
+        const x = unpackX(key), y = unpackY(key);
         for (let i = -1; i <= 1; i++) {
             for (let j = -1; j <= 1; j++) {
                 if (i === 0 && j === 0) continue;
@@ -119,49 +146,34 @@ function tick() {
             }
         }
     }
-
     const nextGen = new Set();
     for (const [key, count] of neighborCounts) {
-        if (count === 3 || (liveCells.has(key) && count === 2)) {
-            nextGen.add(key);
-        }
+        if (count === 3 || (liveCells.has(key) && count === 2)) nextGen.add(key);
     }
     liveCells = nextGen;
 }
 
 function draw() {
-    // 1. Update Gradient Cache
+    // Gradient Caching
     if (renderCache.width !== width || renderCache.height !== height) {
-        renderCache.width = width;
-        renderCache.height = height;
-        const cx = width / 2, cy = height / 2;
-        const maxDim = Math.max(width, height);
-
+        renderCache.width = width; renderCache.height = height;
+        const cx = width / 2, cy = height / 2, maxDim = Math.max(width, height);
         const spot = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxDim * 0.5);
-        spot.addColorStop(0, '#1a1a1a');
-        spot.addColorStop(1, '#0a0a0a');
+        spot.addColorStop(0, '#1a1a1a'); spot.addColorStop(1, '#0a0a0a');
         renderCache.spotlight = spot;
-
         const vig = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxDim * 0.7);
-        vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        vig.addColorStop(0.3, 'rgba(0, 0, 0, 0)');
-        vig.addColorStop(0.8, 'rgba(10, 10, 10, 0.7)');
-        vig.addColorStop(1, '#000000');
+        vig.addColorStop(0, 'rgba(0, 0, 0, 0)'); vig.addColorStop(0.3, 'rgba(0, 0, 0, 0)');
+        vig.addColorStop(0.8, 'rgba(10, 10, 10, 0.7)'); vig.addColorStop(1, '#000000');
         renderCache.vignette = vig;
     }
 
-    // 2. Background
     ctx.fillStyle = renderCache.spotlight;
     ctx.fillRect(0, 0, width, height);
 
-    // 3. Grid Lines
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = '#252525';
-    
-    const startCol = Math.floor(-offsetX / scale);
-    const endCol = startCol + Math.ceil(width / scale);
-    const startRow = Math.floor(-offsetY / scale);
-    const endRow = startRow + Math.ceil(height / scale);
+    // Grid
+    ctx.lineWidth = 1; ctx.strokeStyle = '#252525';
+    const startCol = Math.floor(-offsetX / scale), endCol = startCol + Math.ceil(width / scale);
+    const startRow = Math.floor(-offsetY / scale), endRow = startRow + Math.ceil(height / scale);
 
     ctx.beginPath();
     for (let x = startCol; x <= endCol; x++) {
@@ -174,37 +186,23 @@ function draw() {
     }
     ctx.stroke();
 
-    // 4. Cells (Batch Render)
+    // Cells
     ctx.fillStyle = '#FFFFFF';
     const applyShadow = scale > 10;
-    if (applyShadow) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
-    }
+    if (applyShadow) { ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(255, 255, 255, 0.2)'; }
 
     ctx.beginPath();
-    const cellSize = scale - 1;
-    const useRoundRect = scale > 4;
-
+    const cellSize = scale - 1, useRoundRect = scale > 4;
     for (const key of liveCells) {
-        const gx = unpackX(key);
-        const gy = unpackY(key);
-
+        const gx = unpackX(key), gy = unpackY(key);
         if (gx < startCol || gx > endCol || gy < startRow || gy > endRow) continue;
-
-        const sx = (gx * scale + offsetX) | 0;
-        const sy = (gy * scale + offsetY) | 0;
-
-        if (useRoundRect) {
-            ctx.roundRect(sx + 1, sy + 1, cellSize - 1, cellSize - 1, 2);
-        } else {
-            ctx.rect(sx, sy, cellSize, cellSize);
-        }
+        const sx = (gx * scale + offsetX) | 0, sy = (gy * scale + offsetY) | 0;
+        if (useRoundRect) ctx.roundRect(sx + 1, sy + 1, cellSize - 1, cellSize - 1, 2);
+        else ctx.rect(sx, sy, cellSize, cellSize);
     }
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // 5. Vignette
     ctx.fillStyle = renderCache.vignette;
     ctx.fillRect(0, 0, width, height);
 }
@@ -222,8 +220,9 @@ function loop(timestamp) {
 }
 requestAnimationFrame(loop);
 
-// --- 4. Input Handling ---
-
+/**
+ * 4. INTERACTION LOGIC
+ */
 function paintCircle(cx, cy) {
     const r = (brushSize - 1) / 2;
     const rSq = r * r;
@@ -231,8 +230,7 @@ function paintCircle(cx, cy) {
         for (let y = Math.round(cy - r); y <= Math.round(cy + r); y++) {
             if (brushSize > 1 && (x - cx)**2 + (y - cy)**2 > rSq) continue;
             const key = pack(x, y);
-            if (drawMode) liveCells.add(key);
-            else liveCells.delete(key);
+            if (drawMode) liveCells.add(key); else liveCells.delete(key);
         }
     }
 }
@@ -284,9 +282,7 @@ canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const zoom = e.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.max(2, Math.min(100, scale * zoom));
-    const worldX = (e.clientX - offsetX) / scale;
-    const worldY = (e.clientY - offsetY) / scale;
+    const worldX = (e.clientX - offsetX) / scale, worldY = (e.clientY - offsetY) / scale;
     scale = newScale;
-    offsetX = e.clientX - worldX * scale;
-    offsetY = e.clientY - worldY * scale;
+    offsetX = e.clientX - worldX * scale; offsetY = e.clientY - worldY * scale;
 }, { passive: false });
