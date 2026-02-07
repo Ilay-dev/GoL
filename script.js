@@ -86,13 +86,24 @@ function tick() {
 // --- Rendering ---
 
 function draw() {
-    // 1. Background
-    ctx.fillStyle = '#121212';
+    // 1. Hintergrund (etwas dunkler für mehr Kontrast)
+    ctx.fillStyle = '#0a0a0a'; 
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Grid Lines
+    // --- NEU: Spotlight Glow (Hintergrund-Licht) ---
+    // Erzeugt einen sanften Lichtkegel in der Mitte, BEVOR das Raster gezeichnet wird
+    const spotGlow = ctx.createRadialGradient(
+        width / 2, height / 2, 0,
+        width / 2, height / 2, Math.max(width, height) * 0.5
+    );
+    spotGlow.addColorStop(0, '#1a1a1a'); // Lichtfarbe in der Mitte
+    spotGlow.addColorStop(1, '#0a0a0a'); // Läuft in die Hintergrundfarbe aus
+    ctx.fillStyle = spotGlow;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Raster-Linien
     ctx.lineWidth = 1;
-    ctx.strokeStyle = '#2A2A2A'; 
+    ctx.strokeStyle = '#252525'; // Dezentere Linienfarbe
     ctx.beginPath();
 
     const startCol = Math.floor((-offsetX) / scale);
@@ -110,11 +121,14 @@ function draw() {
     }
     ctx.stroke();
 
-    // 3. Cells
+    // 3. Zellen
     ctx.fillStyle = '#FFFFFF';
+    // Kleiner Trick: Schatten für die Zellen im Lichtzentrum
+    ctx.shadowBlur = scale > 10 ? 10 : 0;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
+
     for (const key of liveCells) {
         const [gx, gy] = key.split(',').map(Number);
-        
         if (gx < startCol || gx > endCol || gy < startRow || gy > endRow) continue;
 
         const screenX = gx * scale + offsetX;
@@ -123,37 +137,31 @@ function draw() {
 
         if (scale > 4) {
             ctx.beginPath();
-            ctx.roundRect(screenX + 1, screenY + 1, size -1, size -1, 2);
+            ctx.roundRect(screenX + 1, screenY + 1, size - 1, size - 1, 2);
             ctx.fill();
         } else {
             ctx.fillRect(screenX, screenY, size, size);
         }
     }
+    ctx.shadowBlur = 0; // Schatten für Rest wieder aus
 
-// 4. Vignette (Aggressive Spotlight)
-    // Reduced radius multiplier to 0.6 to force darkness onscreen
-    const radius = Math.max(width, height) * 0.6; 
-
-    const gradient = ctx.createRadialGradient(
-        width / 2, height / 2, 0,           
-        width / 2, height / 2, radius       
+    // 4. Vignette (Dark Overlay für den Spotlight-Fokus)
+    const vignetteRadius = Math.max(width, height) * 0.7;
+    const vignette = ctx.createRadialGradient(
+        width / 2, height / 2, 0,
+        width / 2, height / 2, vignetteRadius
     );
     
-    // 0% - 20%: Clear center
-    gradient.addColorStop(0, 'rgba(18, 18, 18, 0)');
-    gradient.addColorStop(0.2, 'rgba(18, 18, 18, 0)'); 
-    
-    // 60%: Semi-dark (starts hiding grid)
-    gradient.addColorStop(0.6, 'rgba(18, 18, 18, 0.5)');
+    // In der Mitte komplett transparent (das Spotlight)
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(0.3, 'rgba(0, 0, 0, 0)');
+    // Zu den Rändern hin abdunkeln
+    vignette.addColorStop(0.8, 'rgba(10, 10, 10, 0.7)');
+    vignette.addColorStop(1, '#000000'); 
 
-    // 90% - 100%: Solid background to Pitch Black
-    gradient.addColorStop(0.9, '#121212'); 
-    gradient.addColorStop(1, '#000000'); 
-
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, width, height);
 }
-
 // --- Loop ---
 
 function loop(timestamp) {
