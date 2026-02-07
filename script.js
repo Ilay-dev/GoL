@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     /**
-     * GAME OF LIFE ENGINE (Desktop Optimized)
+     * GAME OF LIFE ENGINE
+     * Desktop Optimized Version
      */
+
     const canvas = document.getElementById('gridCanvas');
     const ctx = canvas.getContext('2d', { alpha: false }); 
     
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.width = width;
         canvas.height = height;
         
+        // Initial Center
         if (offsetX === 0 && offsetY === 0) {
             offsetX = width / 2;
             offsetY = height / 2;
@@ -102,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = '#FFFFFF';
         for (const key of liveCells) {
             const [gx, gy] = key.split(',').map(Number);
-            
             if (gx < startCol || gx > endCol || gy < startRow || gy > endRow) continue;
 
             const screenX = gx * scale + offsetX;
@@ -118,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 4. Vignette (Desktop Style)
+        // 4. Vignette
         const radius = Math.max(width, height) * 0.85; 
         const gradient = ctx.createRadialGradient(
             width / 2, height / 2, 0,           
@@ -144,7 +146,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     requestAnimationFrame(loop);
 
-    // --- Brush Logic ---
+    // --- Helper Functions ---
+
+    function togglePlay() {
+        isPlaying = !isPlaying;
+        const playIcon = document.getElementById('icon-play');
+        const pauseIcon = document.getElementById('icon-pause');
+        
+        if (playIcon && pauseIcon) {
+            playIcon.style.display = isPlaying ? 'none' : 'block';
+            pauseIcon.style.display = isPlaying ? 'block' : 'none';
+        }
+        
+        if(isPlaying) lastTickTime = performance.now();
+    }
 
     function paintCircle(cx, cy) {
         if (brushSize === 1) {
@@ -187,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Interaction ---
+    // --- Mouse Interaction ---
 
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -204,12 +219,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: false });
 
     canvas.addEventListener('mousedown', (e) => {
-        if (e.button === 1 || (e.button === 0 && e.altKey)) { // Middle or Alt+Click
+        if (e.button === 1 || (e.button === 0 && e.altKey)) { 
+            // Middle or Alt+Left for Panning
             isDragging = true;
             dragStartX = e.clientX - offsetX;
             dragStartY = e.clientY - offsetY;
             canvas.style.cursor = 'grabbing';
-        } else if (e.button === 0) { // Left Click
+        } else if (e.button === 0) { 
+            // Left for Drawing
             isDrawing = true;
             const gx = Math.floor((e.clientX - offsetX) / scale);
             const gy = Math.floor((e.clientY - offsetY) / scale);
@@ -235,49 +252,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (isDrawing) {
             const gx = Math.floor((e.clientX - offsetX) / scale);
             const gy = Math.floor((e.clientY - offsetY) / scale);
-            
             if (lastDrawPos) interpolateLine(lastDrawPos.x, lastDrawPos.y, gx, gy);
             else paintCircle(gx, gy);
-            
             lastDrawPos = { x: gx, y: gy };
             draw();
         }
     });
 
-    // Spacebar to Play/Pause
+    // Spacebar Keybind
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space') {
-            e.preventDefault(); // Stop scrolling
+            e.preventDefault(); 
             togglePlay();
         }
     });
-
-    function togglePlay() {
-        isPlaying = !isPlaying;
-        const playIcon = document.getElementById('icon-play');
-        const pauseIcon = document.getElementById('icon-pause');
-        
-        if (playIcon && pauseIcon) {
-            playIcon.style.display = isPlaying ? 'none' : 'block';
-            pauseIcon.style.display = isPlaying ? 'block' : 'none';
-        }
-        
-        if(isPlaying) lastTickTime = performance.now();
-    }
 
     // --- UI Logic ---
 
     // Start Button
     const startBtn = document.getElementById('startBtn');
     startBtn.addEventListener('click', () => {
-        document.getElementById('intro-modal').style.opacity = '0';
+        const modal = document.getElementById('intro-modal');
+        modal.style.opacity = '0';
         setTimeout(() => {
-            document.getElementById('intro-modal').style.display = 'none';
+            modal.style.display = 'none';
             document.getElementById('controls').style.display = 'flex';
+            
+            // Seed Glider if empty
             if (liveCells.size === 0) {
-                // Glider Seed
-                const seeds = ["0,0", "1,0", "2,0", "2,-1", "1,-2"];
-                seeds.forEach(s => liveCells.add(s));
+                ["0,0", "1,0", "2,0", "2,-1", "1,-2"].forEach(s => liveCells.add(s));
                 draw();
             }
         }, 300);
@@ -305,4 +308,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     brushBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        brush
+        brushMenu.classList.toggle('open');
+        speedMenu.classList.remove('open');
+    });
+
+    document.querySelectorAll('.speed-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.speed-opt').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            simulationSpeed = parseInt(btn.dataset.speed);
+            speedLabel.textContent = `x${simulationSpeed} Speed`;
+            speedMenu.classList.remove('open');
+        });
+    });
+
+    // Brush Sync
+    const bSlider = document.getElementById('brushSlider');
+    const bInput = document.getElementById('brushInput');
+
+    bSlider.addEventListener('input', (e) => {
+        brushSize = parseInt(e.target.value);
+        bInput.value = brushSize;
+    });
+
+    bInput.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value);
+        if(val < 1) val = 1; 
+        if(val > 50) val = 50;
+        brushSize = val;
+        bSlider.value = val;
+    });
+
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.speed-container') && !e.target.closest('.brush-container')) {
+            speedMenu.classList.remove('open');
+            brushMenu.classList.remove('open');
+        }
+    });
+
+});
