@@ -1,6 +1,9 @@
 /**
- * GAME OF LIFE ENGINE
- * Desktop Optimized - Fixed Syntax
+ * GAME OF LIFE ENGINE V2
+ * - HTML5 Canvas Rendering
+ * - Infinite Grid (Sparse Matrix)
+ * - Linear Interpolation for Smooth Drawing
+ * - Dynamic Brush Sizes
  */
 
 const canvas = document.getElementById('gridCanvas');
@@ -17,18 +20,21 @@ let scale = 20;
 let offsetX = 0;
 let offsetY = 0;
 
-// Grid Data
-let liveCells = new Set();
-
-// Interaction State
+// Input & Drawing State
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
 let isDrawing = false;
-let drawMode = true; 
-let brushSize = 1; 
-let lastDrawPos = null;
+let drawMode = true; // true = add, false = remove
 
-// --- Initialization ---
+// Brush State
+let brushSize = 1; // Diameter in cells
+let lastDrawPos = null; // {x, y} for interpolation
+
+// Grid Data
+let liveCells = new Set();
+
+
+// --- Setup ---
 
 function resize() {
     width = window.innerWidth;
@@ -36,20 +42,22 @@ function resize() {
     canvas.width = width;
     canvas.height = height;
     
-    // Initial Center
     if (offsetX === 0 && offsetY === 0) {
         offsetX = width / 2;
         offsetY = height / 2;
     }
     draw();
 }
+
 window.addEventListener('resize', resize);
 resize();
+
 
 // --- Logic ---
 
 function tick() {
     const neighborCounts = new Map();
+    
     const addNeighbor = (x, y) => {
         const key = `${x},${y}`;
         neighborCounts.set(key, (neighborCounts.get(key) || 0) + 1);
@@ -63,14 +71,17 @@ function tick() {
     }
 
     const nextGen = new Set();
+
     for (const [key, count] of neighborCounts) {
         const isAlive = liveCells.has(key);
         if (isAlive && (count === 2 || count === 3)) nextGen.add(key);
         else if (!isAlive && count === 3) nextGen.add(key);
     }
+
     liveCells = nextGen;
     draw();
 }
+
 
 // --- Rendering ---
 
@@ -119,8 +130,8 @@ function draw() {
         }
     }
 
-    // 4. Vignette
-    const radius = Math.max(width, height) * 0.85; 
+    // 4. Spotlight Vignette
+    const radius = Math.max(width, height) * 0.8; 
     const gradient = ctx.createRadialGradient(
         width / 2, height / 2, 0,           
         width / 2, height / 2, radius       
@@ -132,6 +143,9 @@ function draw() {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 }
+
+
+// --- Loop ---
 
 function loop(timestamp) {
     if (isPlaying) {
@@ -145,30 +159,24 @@ function loop(timestamp) {
 }
 requestAnimationFrame(loop);
 
-// --- Helper Functions ---
 
-function togglePlay() {
-    isPlaying = !isPlaying;
-    const playIcon = document.getElementById('icon-play');
-    const pauseIcon = document.getElementById('icon-pause');
-    
-    if (playIcon && pauseIcon) {
-        playIcon.style.display = isPlaying ? 'none' : 'block';
-        pauseIcon.style.display = isPlaying ? 'block' : 'none';
-    }
-    
-    if(isPlaying) lastTickTime = performance.now();
-}
+// --- Interaction & Brush Logic ---
 
+// Helper: Paint a circle at x,y with current brush size
 function paintCircle(cx, cy) {
+    // If brush is 1, just single pixel
     if (brushSize === 1) {
         const key = `${cx},${cy}`;
         if (drawMode) liveCells.add(key);
         else liveCells.delete(key);
         return;
     }
+
+    // Circle Logic
     const r = brushSize / 2;
     const rSq = r * r;
+    
+    // Bounding box for the circle
     const startX = Math.floor(cx - r);
     const endX = Math.ceil(cx + r);
     const startY = Math.floor(cy - r);
@@ -176,7 +184,9 @@ function paintCircle(cx, cy) {
 
     for (let x = startX; x <= endX; x++) {
         for (let y = startY; y <= endY; y++) {
-            if ((x - cx) ** 2 + (y - cy) ** 2 <= rSq) {
+            // Check distance from center
+            const distSq = (x - cx) ** 2 + (y - cy) ** 2;
+            if (distSq <= rSq) {
                 const key = `${x},${y}`;
                 if (drawMode) liveCells.add(key);
                 else liveCells.delete(key);
@@ -185,6 +195,7 @@ function paintCircle(cx, cy) {
     }
 }
 
+// Helper: Linear Interpolation between two points (fills gaps)
 function interpolateLine(x0, y0, x1, y1) {
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
@@ -193,7 +204,8 @@ function interpolateLine(x0, y0, x1, y1) {
     let err = dx - dy;
 
     while (true) {
-        paintCircle(x0, y0);
+        paintCircle(x0, y0); // Paint at current step
+
         if (x0 === x1 && y0 === y1) break;
         const e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -201,35 +213,24 @@ function interpolateLine(x0, y0, x1, y1) {
     }
 }
 
-// --- Interaction ---
-
-canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newScale = Math.max(2, Math.min(200, scale * (1 + delta)));
-
-    const gridX = (e.clientX - offsetX) / scale;
-    const gridY = (e.clientY - offsetY) / scale;
-
-    scale = newScale;
-    offsetX = e.clientX - gridX * scale;
-    offsetY = e.clientY - gridY * scale;
-    draw();
-}, { passive: false });
-
+// Mouse Handlers
 canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) { 
-        // Middle or Alt+Left for Panning
+    if (e.button === 1) { // Middle: Pan
         isDragging = true;
         dragStartX = e.clientX - offsetX;
         dragStartY = e.clientY - offsetY;
         canvas.style.cursor = 'grabbing';
-    } else if (e.button === 0) { 
-        // Left for Drawing
+    } else if (e.button === 0) { // Left: Draw
         isDrawing = true;
+        
+        // Determine start pos
         const gx = Math.floor((e.clientX - offsetX) / scale);
         const gy = Math.floor((e.clientY - offsetY) / scale);
+        
+        // Determine mode (Add or Remove) based on what we clicked first
+        // Note: For large brushes, we check center.
         drawMode = !liveCells.has(`${gx},${gy}`);
+        
         lastDrawPos = { x: gx, y: gy };
         paintCircle(gx, gy);
         draw();
@@ -239,7 +240,7 @@ canvas.addEventListener('mousedown', (e) => {
 window.addEventListener('mouseup', () => {
     isDragging = false;
     isDrawing = false;
-    lastDrawPos = null;
+    lastDrawPos = null; // Reset interpolation path
     canvas.style.cursor = 'crosshair';
 });
 
@@ -251,111 +252,113 @@ canvas.addEventListener('mousemove', (e) => {
     } else if (isDrawing) {
         const gx = Math.floor((e.clientX - offsetX) / scale);
         const gy = Math.floor((e.clientY - offsetY) / scale);
-        
-        if (lastDrawPos) interpolateLine(lastDrawPos.x, lastDrawPos.y, gx, gy);
-        else paintCircle(gx, gy);
-        
+
+        // Interpolate from last position to current to prevent gaps
+        if (lastDrawPos) {
+            interpolateLine(lastDrawPos.x, lastDrawPos.y, gx, gy);
+        } else {
+            paintCircle(gx, gy);
+        }
+
         lastDrawPos = { x: gx, y: gy };
         draw();
     }
 });
 
-// Spacebar to Play/Pause
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        e.preventDefault(); 
-        togglePlay();
-    }
+// Zoom
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newScale = Math.max(2, Math.min(100, scale * (1 + delta)));
+
+    const gridX = (e.clientX - offsetX) / scale;
+    const gridY = (e.clientY - offsetY) / scale;
+
+    scale = newScale;
+    offsetX = e.clientX - gridX * scale;
+    offsetY = e.clientY - gridY * scale;
+    draw();
+}, { passive: false });
+
+
+// --- UI Events ---
+
+// Start
+document.getElementById('startBtn').addEventListener('click', () => {
+    document.getElementById('intro-modal').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('intro-modal').style.display = 'none';
+        document.getElementById('controls').style.display = 'flex';
+        // Auto-seed
+        if (liveCells.size === 0) {
+            liveCells.add("0,0"); liveCells.add("1,0"); liveCells.add("2,0");
+            liveCells.add("2,-1"); liveCells.add("1,-2");
+            draw();
+        }
+    }, 300);
 });
 
-// --- UI Logic ---
+// Play/Pause
+document.getElementById('playPauseBtn').addEventListener('click', () => {
+    isPlaying = !isPlaying;
+    document.getElementById('icon-play').style.display = isPlaying ? 'none' : 'block';
+    document.getElementById('icon-pause').style.display = isPlaying ? 'block' : 'none';
+    if(isPlaying) lastTickTime = performance.now();
+});
 
-// Start Button
-const startBtn = document.getElementById('startBtn');
-if (startBtn) {
-    startBtn.addEventListener('click', () => {
-        const modal = document.getElementById('intro-modal');
-        modal.style.opacity = '0';
-        setTimeout(() => {
-            modal.style.display = 'none';
-            document.getElementById('controls').style.display = 'flex';
-            
-            // Seed Glider if empty
-            if (liveCells.size === 0) {
-                ["0,0", "1,0", "2,0", "2,-1", "1,-2"].forEach(s => liveCells.add(s));
-                draw();
-            }
-        }, 300);
-    });
-}
+// Clear
+document.getElementById('clearBtn').addEventListener('click', () => {
+    liveCells.clear();
+    draw();
+});
 
-// Controls
-const playPauseBtn = document.getElementById('playPauseBtn');
-if (playPauseBtn) {
-    playPauseBtn.addEventListener('click', togglePlay);
-}
-
-const clearBtn = document.getElementById('clearBtn');
-if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-        liveCells.clear();
-        draw();
-    });
-}
-
-// Menus
-const speedLabel = document.getElementById('speedLabel');
+// Speed Menu
 const speedMenu = document.getElementById('speed-menu');
-const brushBtn = document.getElementById('brushBtn');
-const brushMenu = document.getElementById('brush-menu');
+const speedLabel = document.getElementById('speedLabel');
 
-if (speedLabel && speedMenu) {
-    speedLabel.addEventListener('click', (e) => {
-        e.stopPropagation();
-        speedMenu.classList.toggle('open');
-        if (brushMenu) brushMenu.classList.remove('open');
-    });
-}
-
-if (brushBtn && brushMenu) {
-    brushBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        brushMenu.classList.toggle('open');
-        if (speedMenu) speedMenu.classList.remove('open');
-    });
-}
+speedLabel.addEventListener('click', () => {
+    speedMenu.classList.toggle('open');
+    brushMenu.classList.remove('open'); // Close other menu
+});
 
 document.querySelectorAll('.speed-opt').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.speed-opt').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         simulationSpeed = parseInt(btn.dataset.speed);
-        if (speedLabel) speedLabel.textContent = `x${simulationSpeed} Speed`;
-        if (speedMenu) speedMenu.classList.remove('open');
+        speedLabel.textContent = `x${simulationSpeed} Speed`;
+        speedMenu.classList.remove('open');
     });
 });
 
-// Brush Sync
-const bSlider = document.getElementById('brushSlider');
-const bInput = document.getElementById('brushInput');
+// --- Brush Logic UI ---
+const brushBtn = document.getElementById('brushBtn');
+const brushMenu = document.getElementById('brush-menu');
+const brushSlider = document.getElementById('brushSlider');
+const brushInput = document.getElementById('brushInput');
 
-if (bSlider && bInput) {
-    bSlider.addEventListener('input', (e) => {
-        brushSize = parseInt(e.target.value);
-        bInput.value = brushSize;
-    });
+brushBtn.addEventListener('click', () => {
+    brushMenu.classList.toggle('open');
+    speedMenu.classList.remove('open'); // Close other menu
+});
 
-    bInput.addEventListener('input', (e) => {
-        let val = parseInt(e.target.value);
-        if(val < 1) val = 1; 
-        if(val > 50) val = 50;
-        brushSize = val;
-        bSlider.value = val;
-    });
-}
+// Sync Slider -> Input
+brushSlider.addEventListener('input', (e) => {
+    brushSize = parseInt(e.target.value);
+    brushInput.value = brushSize;
+});
 
-// Close on click outside
+// Sync Input -> Slider
+brushInput.addEventListener('input', (e) => {
+    let val = parseInt(e.target.value);
+    if(val < 1) val = 1;
+    if(val > 50) val = 50;
+    brushSize = val;
+    brushSlider.value = val;
+});
+
+// Click outside to close menus
 document.addEventListener('click', (e) => {
-    if (speedMenu && !e.target.closest('.speed-container')) speedMenu.classList.remove('open');
-    if (brushMenu && !e.target.closest('.brush-container')) brushMenu.classList.remove('open');
+    if (!e.target.closest('.speed-container')) speedMenu.classList.remove('open');
+    if (!e.target.closest('.brush-container')) brushMenu.classList.remove('open');
 });
