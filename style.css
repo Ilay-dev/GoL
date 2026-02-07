@@ -14,34 +14,27 @@ body, html {
 
 canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
 
-/* --- Intro Modal (Now Liquid Glass) --- */
+/* --- Intro Modal --- */
 #intro-modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    /* Darker dimming for better contrast with glass */
-    background: rgba(0,0,0,0.4); 
+    background: rgba(0,0,0,0.6); 
     display: flex; justify-content: center; align-items: center;
-    z-index: 100; transition: opacity 0.4s ease;
+    z-index: 100; transition: opacity 0.3s ease;
 }
 
 .modal-content {
-    /* Liquid Glass Effect (Same as controls) */
-    background: rgba(30, 30, 30, 0.65);
+    background: rgba(30, 30, 30, 0.85);
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
-    
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 
-        0 40px 80px rgba(0,0,0,0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1); /* Inner highlight */
-    
-    padding: 2.5rem; border-radius: 24px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.7);
+    padding: 2.5rem; border-radius: 16px;
     max-width: 450px; width: 90%;
     text-align: left;
-    transform: translateZ(0); /* Hardware accel fix */
 }
 
 h1 { margin: 0 0 0.5rem 0; font-weight: 600; color: #fff; letter-spacing: -0.02em; }
-.subtitle { font-size: 0.95rem; color: #aaa; margin-bottom: 2rem; font-weight: 400; }
+.subtitle { font-size: 0.95rem; color: #888; margin-bottom: 2rem; font-weight: 400; }
 
 .keybind-row {
     display: flex; justify-content: space-between; align-items: center;
@@ -58,34 +51,26 @@ h1 { margin: 0 0 0.5rem 0; font-weight: 600; color: #fff; letter-spacing: -0.02e
 
 button.primary-btn {
     background: #fff; color: #000; border: none; width: 100%; padding: 0.9rem;
-    font-weight: 600; border-radius: 12px; cursor: pointer; transition: 0.2s;
+    font-weight: 600; border-radius: 8px; cursor: pointer; transition: 0.2s;
     margin-top: 1.5rem; font-size: 1rem;
 }
-button.primary-btn:hover { background: #f0f0f0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+button.primary-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
 
 /* --- Liquid Control Bar --- */
 #controls {
     position: fixed; bottom: 30px; left: 50%;
     transform: translateX(-50%);
-    
-    /* Apple Liquid Glass Effect */
-    background: rgba(30, 30, 30, 0.5); 
+    background: rgba(30, 30, 30, 0.6); 
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
-    
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 100px; /* Pill shape */
-    padding: 6px 12px;
-    
+    border-radius: 100px; padding: 6px 12px;
     display: flex; align-items: center; gap: 8px;
     z-index: 50;
-    
-    box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
-.control-group { display: flex; gap: 4px; }
+.control-group { display: flex; gap: 4px; align-items: center; }
 .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 6px; }
 
 .control-btn {
@@ -96,37 +81,21 @@ button.primary-btn:hover { background: #f0f0f0; transform: translateY(-1px); box
 }
 .control-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .control-btn.danger:hover { background: rgba(255, 60, 60, 0.25); color: #ff6b6b; }
-.control-btn svg { width: 20px; height: 20px; fill: currentColor; }
+.control-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
-/* Speed Menu */
-.speed-container { position: relative; }
-.speed-trigger {
-    font-size: 0.9rem; font-weight: 500; font-variant-numeric: tabular-nums;
-    padding: 8px 16px; border-radius: 20px;
-    cursor: pointer; color: #ccc; transition: 0.2s;
-}
-.speed-trigger:hover { color: #fff; background: rgba(255,255,255,0.08); }
+/* Menus */
+.brush-container, .speed-container { position: relative; }
 
-#speed-menu {
-    position: absolute; bottom: 130%; left: 50%;
+#brush-menu, #speed-menu {
+    position: absolute; bottom: 140%; left: 50%;
     transform: translateX(-50%) translateY(10px);
-    
-    /* Same Liquid Style */
-    background: rgba(30, 30, 30, 0.75);
+    background: rgba(30, 30, 30, 0.9);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    
-    border-radius: 12px; padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px; padding: 6px;
     display: flex; flex-direction: column; gap: 2px;
     opacity: 0; pointer-events: none;
     transition: opacity 0.2s, transform 0.2s;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6); min-width: 90px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.6); min-width: 90px;
 }
-#speed-menu.open { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-
-.speed-opt {
-    background: transparent; border: none; color: #999;
-    padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
-}
-.speed-opt:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.speed-opt.active { color: #fff; background: rgba(255,255,255,0.2); font-weight: 600; }
+#brush-menu.open, #speed-menu.open { opacity: 1; pointer-events: auto; transform: translateX(-50%) t
