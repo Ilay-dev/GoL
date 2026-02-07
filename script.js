@@ -1,40 +1,38 @@
-/**
- * GAME OF LIFE ENGINE V2
- * - HTML5 Canvas Rendering
- * - Infinite Grid (Sparse Matrix)
- * - Linear Interpolation for Smooth Drawing
- * - Dynamic Brush Sizes
- */
-
 const canvas = document.getElementById('gridCanvas');
-const ctx = canvas.getContext('2d', { alpha: false }); 
+// 'desynchronized' reduces latency in some browsers
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-// --- Config & State ---
+// --- Configuration & State ---
 let width, height;
 let isPlaying = false;
-let simulationSpeed = 1; 
+let simulationSpeed = 1;
 let lastTickTime = 0;
 
-// Viewport
-let scale = 20; 
-let offsetX = 0;
-let offsetY = 0;
+// Viewport: Control zoom level and scroll position
+let scale = 20;
+let offsetX = 0, offsetY = 0;
 
-// Input & Drawing State
-let isDragging = false;
-let dragStartX = 0, dragStartY = 0;
-let isDrawing = false;
-let drawMode = true; // true = add, false = remove
+// Input & Brush: Track mouse interactions
+let isDragging = false, dragStartX = 0, dragStartY = 0;
+let isDrawing = false, drawMode = true, brushSize = 1, lastDrawPos = null;
 
-// Brush State
-let brushSize = 1; // Diameter in cells
-let lastDrawPos = null; // {x, y} for interpolation
-
-// Grid Data
+/** 
+ * Sparse Matrix using a Set of 32-bit Integers.
+ * Packing X and Y into one number prevents massive Garbage Collection overhead 
+ * caused by string keys like "10,20".
+ * Range: -32,768 to 32,767 for both X and Y.
+ */
 let liveCells = new Set();
+let spotlightGradient = null;
 
+/**
+ * Packs two 16-bit signed integers into one 32-bit unsigned integer.
+ */
+const pack = (x, y) => ((x + 0x8000) << 16) | ((y + 0x8000) & 0xFFFF);
+const unpackX = (key) => (key >>> 16) - 0x8000;
+const unpackY = (key) => (key & 0xFFFF) - 0x8000;
 
-// --- Setup ---
+// --- Setup & Resize ---
 
 function resize() {
     width = window.innerWidth;
@@ -42,127 +40,131 @@ function resize() {
     canvas.width = width;
     canvas.height = height;
     
-    if (offsetX === 0 && offsetY === 0) {
+    // Initial centering
+    if (offsetX === 0) {
         offsetX = width / 2;
         offsetY = height / 2;
     }
+
+    // Cache the Spotlight Gradient to avoid expensive re-calculations in the draw loop
+    const radius = Math.max(width, height) * 0.7;
+    spotlightGradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, radius);
+    spotlightGradient.addColorStop(0, 'rgba(0,0,0,0)');     // Transparent center
+    spotlightGradient.addColorStop(0.3, 'rgba(0,0,0,0)');   // Wide clear area
+    spotlightGradient.addColorStop(0.8, 'rgba(10,10,10,0.7)'); // Gradual darkening
+    spotlightGradient.addColorStop(1, '#000000');           // Pitch black at edges
+    
     draw();
 }
 
 window.addEventListener('resize', resize);
 resize();
 
-
-// --- Logic ---
+// --- Simulation Logic ---
 
 function tick() {
     const neighborCounts = new Map();
     
-    const addNeighbor = (x, y) => {
-        const key = `${x},${y}`;
-        neighborCounts.set(key, (neighborCounts.get(key) || 0) + 1);
-    };
-
+    // 1. Iterate through live cells and increment neighbor counts for adjacent cells
     for (const key of liveCells) {
-        const [x, y] = key.split(',').map(Number);
-        addNeighbor(x-1, y-1); addNeighbor(x, y-1); addNeighbor(x+1, y-1);
-        addNeighbor(x-1, y);                  addNeighbor(x+1, y);
-        addNeighbor(x-1, y+1); addNeighbor(x, y+1); addNeighbor(x+1, y+1);
+        const x = unpackX(key);
+        const y = unpackY(key);
+        
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                if (i === 0 && j === 0) continue;
+                const nKey = pack(x + i, y + j);
+                neighborCounts.set(nKey, (neighborCounts.get(nKey) || 0) + 1);
+            }
+        }
     }
 
+    // 2. Apply Conway's Game of Life rules
     const nextGen = new Set();
-
     for (const [key, count] of neighborCounts) {
         const isAlive = liveCells.has(key);
-        if (isAlive && (count === 2 || count === 3)) nextGen.add(key);
-        else if (!isAlive && count === 3) nextGen.add(key);
+        if (count === 3 || (isAlive && count === 2)) {
+            nextGen.add(key);
+        }
     }
-
     liveCells = nextGen;
     draw();
 }
 
-
-// --- Rendering ---
+// --- High Performance Rendering ---
 
 function draw() {
-    // 1. Hintergrund (etwas dunkler für mehr Kontrast)
-    ctx.fillStyle = '#0a0a0a'; 
+    // Reset transform and clear background
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, height);
 
-    // --- NEU: Spotlight Glow (Hintergrund-Licht) ---
-    // Erzeugt einen sanften Lichtkegel in der Mitte, BEVOR das Raster gezeichnet wird
-    const spotGlow = ctx.createRadialGradient(
-        width / 2, height / 2, 0,
-        width / 2, height / 2, Math.max(width, height) * 0.5
-    );
-    spotGlow.addColorStop(0, '#1a1a1a'); // Lichtfarbe in der Mitte
-    spotGlow.addColorStop(1, '#0a0a0a'); // Läuft in die Hintergrundfarbe aus
-    ctx.fillStyle = spotGlow;
+    // Render Atmospheric Background Glow (Static center light)
+    const bgGlow = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width);
+    bgGlow.addColorStop(0, '#1a1a1a');
+    bgGlow.addColorStop(1, '#0a0a0a');
+    ctx.fillStyle = bgGlow;
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Raster-Linien
+    // Calculate Viewport Clipping (Culling)
+    // We only process and draw cells within these grid boundaries
+    const left = Math.floor(-offsetX / scale);
+    const right = Math.ceil((width - offsetX) / scale);
+    const top = Math.floor(-offsetY / scale);
+    const bottom = Math.ceil((height - offsetY) / scale);
+
+    // Render Grid Lines (Visible portion only)
     ctx.lineWidth = 1;
-    ctx.strokeStyle = '#252525'; // Dezentere Linienfarbe
+    ctx.strokeStyle = '#222';
     ctx.beginPath();
-
-    const startCol = Math.floor((-offsetX) / scale);
-    const endCol = startCol + (width / scale) + 1;
-    const startRow = Math.floor((-offsetY) / scale);
-    const endRow = startRow + (height / scale) + 1;
-
-    for (let x = startCol; x <= endCol; x++) {
-        const sx = Math.floor(x * scale + offsetX) + 0.5;
+    for (let x = left; x <= right; x++) {
+        const sx = x * scale + offsetX;
         ctx.moveTo(sx, 0); ctx.lineTo(sx, height);
     }
-    for (let y = startRow; y <= endRow; y++) {
-        const sy = Math.floor(y * scale + offsetY) + 0.5;
+    for (let y = top; y <= bottom; y++) {
+        const sy = y * scale + offsetY;
         ctx.moveTo(0, sy); ctx.lineTo(width, sy);
     }
     ctx.stroke();
 
-    // 3. Zellen
+    // Render Live Cells
     ctx.fillStyle = '#FFFFFF';
-    // Kleiner Trick: Schatten für die Zellen im Lichtzentrum
-    ctx.shadowBlur = scale > 10 ? 10 : 0;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
+    
+    // Apply subtle glow to cells only when zoomed in (Performance optimization)
+    if (scale > 10) {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(255,255,255,0.3)';
+    }
 
     for (const key of liveCells) {
-        const [gx, gy] = key.split(',').map(Number);
-        if (gx < startCol || gx > endCol || gy < startRow || gy > endRow) continue;
+        const gx = unpackX(key);
+        const gy = unpackY(key);
 
-        const screenX = gx * scale + offsetX;
-        const screenY = gy * scale + offsetY;
-        const size = scale - 1;
+        // Cull cells outside the visible screen area
+        if (gx < left || gx > right || gy < top || gy > bottom) continue;
 
-        if (scale > 4) {
+        const sx = gx * scale + offsetX;
+        const sy = gy * scale + offsetY;
+
+        if (scale > 5) {
+            // Draw high-quality rounded rectangles when zoomed in
             ctx.beginPath();
-            ctx.roundRect(screenX + 1, screenY + 1, size - 1, size - 1, 2);
+            ctx.roundRect(sx + 1, sy + 1, scale - 2, scale - 2, 2);
             ctx.fill();
         } else {
-            ctx.fillRect(screenX, screenY, size, size);
+            // Fast rectangle rendering for low zoom levels
+            ctx.fillRect(sx, sy, scale, scale);
         }
     }
-    ctx.shadowBlur = 0; // Schatten für Rest wieder aus
+    ctx.shadowBlur = 0; // Clean up shadow state
 
-    // 4. Vignette (Dark Overlay für den Spotlight-Fokus)
-    const vignetteRadius = Math.max(width, height) * 0.7;
-    const vignette = ctx.createRadialGradient(
-        width / 2, height / 2, 0,
-        width / 2, height / 2, vignetteRadius
-    );
-    
-    // In der Mitte komplett transparent (das Spotlight)
-    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vignette.addColorStop(0.3, 'rgba(0, 0, 0, 0)');
-    // Zu den Rändern hin abdunkeln
-    vignette.addColorStop(0.8, 'rgba(10, 10, 10, 0.7)');
-    vignette.addColorStop(1, '#000000'); 
-
-    ctx.fillStyle = vignette;
+    // Apply Foreground Spotlight/Vignette Effect
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = spotlightGradient;
     ctx.fillRect(0, 0, width, height);
 }
-// --- Loop ---
+
+// --- Main Animation Loop ---
 
 function loop(timestamp) {
     if (isPlaying) {
@@ -171,58 +173,45 @@ function loop(timestamp) {
             tick();
             lastTickTime = timestamp;
         }
+    } else {
+        // Continue drawing while paused to allow smooth Panning/Zooming
+        draw();
     }
     requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
+// --- User Interaction & Brush Logic ---
 
-// --- Interaction & Brush Logic ---
-
-// Helper: Paint a circle at x,y with current brush size
 function paintCircle(cx, cy) {
-    // If brush is 1, just single pixel
-    if (brushSize === 1) {
-        const key = `${cx},${cy}`;
-        if (drawMode) liveCells.add(key);
-        else liveCells.delete(key);
-        return;
-    }
-
-    // Circle Logic
     const r = brushSize / 2;
     const rSq = r * r;
-    
-    // Bounding box for the circle
-    const startX = Math.floor(cx - r);
-    const endX = Math.ceil(cx + r);
-    const startY = Math.floor(cy - r);
-    const endY = Math.ceil(cy + r);
+    const startX = Math.floor(cx - r), endX = Math.ceil(cx + r);
+    const startY = Math.floor(cy - r), endY = Math.ceil(cy + r);
 
     for (let x = startX; x <= endX; x++) {
         for (let y = startY; y <= endY; y++) {
-            // Check distance from center
-            const distSq = (x - cx) ** 2 + (y - cy) ** 2;
-            if (distSq <= rSq) {
-                const key = `${x},${y}`;
-                if (drawMode) liveCells.add(key);
-                else liveCells.delete(key);
-            }
+            // Brush shape check
+            if (brushSize > 1 && (x - cx)**2 + (y - cy)**2 > rSq) continue;
+            
+            const key = pack(x, y);
+            if (drawMode) liveCells.add(key);
+            else liveCells.delete(key);
         }
     }
 }
 
-// Helper: Linear Interpolation between two points (fills gaps)
+/**
+ * Linear Interpolation (Bresenham-like) to prevent gaps 
+ * when the user moves the mouse faster than the frame rate.
+ */
 function interpolateLine(x0, y0, x1, y1) {
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = (x0 < x1) ? 1 : -1;
-    const sy = (y0 < y1) ? 1 : -1;
+    const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     let err = dx - dy;
-
+    
     while (true) {
-        paintCircle(x0, y0); // Paint at current step
-
+        paintCircle(x0, y0);
         if (x0 === x1 && y0 === y1) break;
         const e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -230,152 +219,55 @@ function interpolateLine(x0, y0, x1, y1) {
     }
 }
 
-// Mouse Handlers
 canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 1) { // Middle: Pan
+    if (e.button === 1) { // Middle Mouse: Start Panning
         isDragging = true;
         dragStartX = e.clientX - offsetX;
         dragStartY = e.clientY - offsetY;
-        canvas.style.cursor = 'grabbing';
-    } else if (e.button === 0) { // Left: Draw
+    } else if (e.button === 0) { // Left Mouse: Start Drawing
         isDrawing = true;
-        
-        // Determine start pos
         const gx = Math.floor((e.clientX - offsetX) / scale);
         const gy = Math.floor((e.clientY - offsetY) / scale);
         
-        // Determine mode (Add or Remove) based on what we clicked first
-        // Note: For large brushes, we check center.
-        drawMode = !liveCells.has(`${gx},${gy}`);
-        
+        // Pick mode: Erase if cell exists, Draw if it doesn't
+        drawMode = !liveCells.has(pack(gx, gy));
         lastDrawPos = { x: gx, y: gy };
         paintCircle(gx, gy);
-        draw();
     }
 });
 
-window.addEventListener('mouseup', () => {
-    isDragging = false;
-    isDrawing = false;
-    lastDrawPos = null; // Reset interpolation path
-    canvas.style.cursor = 'crosshair';
+window.addEventListener('mouseup', () => { 
+    isDragging = false; 
+    isDrawing = false; 
+    lastDrawPos = null; 
 });
 
 canvas.addEventListener('mousemove', (e) => {
     if (isDragging) {
         offsetX = e.clientX - dragStartX;
         offsetY = e.clientY - dragStartY;
-        draw();
     } else if (isDrawing) {
         const gx = Math.floor((e.clientX - offsetX) / scale);
         const gy = Math.floor((e.clientY - offsetY) / scale);
-
-        // Interpolate from last position to current to prevent gaps
-        if (lastDrawPos) {
-            interpolateLine(lastDrawPos.x, lastDrawPos.y, gx, gy);
-        } else {
-            paintCircle(gx, gy);
-        }
-
+        
+        if (lastDrawPos) interpolateLine(lastDrawPos.x, lastDrawPos.y, gx, gy);
+        else paintCircle(gx, gy);
+        
         lastDrawPos = { x: gx, y: gy };
-        draw();
     }
 });
 
-// Zoom
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newScale = Math.max(2, Math.min(100, scale * (1 + delta)));
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.max(2, Math.min(100, scale * zoomFactor));
 
-    const gridX = (e.clientX - offsetX) / scale;
-    const gridY = (e.clientY - offsetY) / scale;
+    // Calculate mouse position relative to grid (World Space) 
+    // to ensure we zoom centered on the cursor
+    const worldX = (e.clientX - offsetX) / scale;
+    const worldY = (e.clientY - offsetY) / scale;
 
     scale = newScale;
-    offsetX = e.clientX - gridX * scale;
-    offsetY = e.clientY - gridY * scale;
-    draw();
+    offsetX = e.clientX - worldX * scale;
+    offsetY = e.clientY - worldY * scale;
 }, { passive: false });
-
-
-// --- UI Events ---
-
-// Start
-document.getElementById('startBtn').addEventListener('click', () => {
-    document.getElementById('intro-modal').style.opacity = '0';
-    setTimeout(() => {
-        document.getElementById('intro-modal').style.display = 'none';
-        document.getElementById('controls').style.display = 'flex';
-        // Auto-seed
-        if (liveCells.size === 0) {
-            liveCells.add("0,0"); liveCells.add("1,0"); liveCells.add("2,0");
-            liveCells.add("2,-1"); liveCells.add("1,-2");
-            draw();
-        }
-    }, 300);
-});
-
-// Play/Pause
-document.getElementById('playPauseBtn').addEventListener('click', () => {
-    isPlaying = !isPlaying;
-    document.getElementById('icon-play').style.display = isPlaying ? 'none' : 'block';
-    document.getElementById('icon-pause').style.display = isPlaying ? 'block' : 'none';
-    if(isPlaying) lastTickTime = performance.now();
-});
-
-// Clear
-document.getElementById('clearBtn').addEventListener('click', () => {
-    liveCells.clear();
-    draw();
-});
-
-// Speed Menu
-const speedMenu = document.getElementById('speed-menu');
-const speedLabel = document.getElementById('speedLabel');
-
-speedLabel.addEventListener('click', () => {
-    speedMenu.classList.toggle('open');
-    brushMenu.classList.remove('open'); // Close other menu
-});
-
-document.querySelectorAll('.speed-opt').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.speed-opt').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        simulationSpeed = parseInt(btn.dataset.speed);
-        speedLabel.textContent = `x${simulationSpeed} Speed`;
-        speedMenu.classList.remove('open');
-    });
-});
-
-// --- Brush Logic UI ---
-const brushBtn = document.getElementById('brushBtn');
-const brushMenu = document.getElementById('brush-menu');
-const brushSlider = document.getElementById('brushSlider');
-const brushInput = document.getElementById('brushInput');
-
-brushBtn.addEventListener('click', () => {
-    brushMenu.classList.toggle('open');
-    speedMenu.classList.remove('open'); // Close other menu
-});
-
-// Sync Slider -> Input
-brushSlider.addEventListener('input', (e) => {
-    brushSize = parseInt(e.target.value);
-    brushInput.value = brushSize;
-});
-
-// Sync Input -> Slider
-brushInput.addEventListener('input', (e) => {
-    let val = parseInt(e.target.value);
-    if(val < 1) val = 1;
-    if(val > 50) val = 50;
-    brushSize = val;
-    brushSlider.value = val;
-});
-
-// Click outside to close menus
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.speed-container')) speedMenu.classList.remove('open');
-    if (!e.target.closest('.brush-container')) brushMenu.classList.remove('open');
-});
