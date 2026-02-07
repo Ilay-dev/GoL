@@ -2,13 +2,12 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <!-- Viewport Fix for Mobile: No scaling allowed -->
+    <!-- WICHTIG: Verhindert Zoomen der Webseite auf Handys, damit die Canvas-Gesten funktionieren -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game of Life | Infinite Canvas</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Defer ist wichtig, damit das Script nach dem HTML lädt -->
     <script src="script.js" defer></script>
-    <!-- Simple Favicon to prevent 404s -->
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
 </head>
 <body>
 
@@ -19,34 +18,34 @@
             <div class="subtitle">Infinite Canvas Automaton</div>
             
             <div class="keybind-grid">
-                <!-- PC Controls -->
-                <div class="keybind-header">Desktop</div>
+                <!-- Desktop Controls -->
+                <div class="keybind-header">Desktop / Laptop</div>
                 <div class="keybind-row">
-                    <span>Draw / Erase</span>
+                    <span>Zeichnen</span>
                     <span class="key-badge">LMB</span>
                 </div>
                 <div class="keybind-row">
-                    <span>Move Canvas</span>
-                    <span class="key-badge">MMB</span>
+                    <span>Bewegen</span>
+                    <span class="key-badge">MMB / Leertaste+Drag</span>
                 </div>
                 <div class="keybind-row">
                     <span>Zoom</span>
-                    <span class="key-badge">Scroll</span>
+                    <span class="key-badge">Scroll / 2-Finger</span>
                 </div>
 
                 <!-- Mobile Controls -->
-                <div class="keybind-header" style="margin-top:15px;">Touch / Mobile</div>
+                <div class="keybind-header" style="margin-top:15px;">Touch / Handy</div>
                 <div class="keybind-row">
-                    <span>Draw</span>
-                    <span class="key-badge">1 Finger</span>
+                    <span>Zeichnen</span>
+                    <span class="key-badge">1 Finger Tippen</span>
                 </div>
                 <div class="keybind-row">
-                    <span>Move & Zoom</span>
-                    <span class="key-badge">2 Fingers</span>
+                    <span>Bewegen & Zoom</span>
+                    <span class="key-badge">2 Finger</span>
                 </div>
             </div>
 
-            <button class="primary-btn" id="startBtn">Start Simulation</button>
+            <button class="primary-btn" id="startBtn">Simulation Starten</button>
         </div>
     </div>
 
@@ -61,18 +60,18 @@
                 <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             </button>
 
-            <button class="control-btn danger" id="clearBtn" title="Delete all">
+            <button class="control-btn danger" id="clearBtn" title="Alles löschen">
                 <svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
             </button>
 
             <!-- Brush Control -->
             <div class="brush-container">
-                <button class="control-btn" id="brushBtn" title="Brush Size">
+                <button class="control-btn" id="brushBtn" title="Pinselgröße">
                     <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12c.4-.4.4-1.03.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
                 </button>
                 
                 <div id="brush-menu">
-                    <label>Size (px)</label>
+                    <label>Größe (px)</label>
                     <div class="brush-input-wrapper">
                         <input type="range" id="brushSlider" min="1" max="50" value="1">
                         <input type="number" id="brushInput" min="1" max="50" value="1">
