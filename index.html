@@ -1,51 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
-    <!-- IMPORTANT: Prevents browser zooming on mobile to allow custom gestures -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game of Life | Infinite Canvas</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Defer ensures script loads after HTML is ready -->
     <script src="script.js" defer></script>
 </head>
 <body>
 
-    <!-- Intro / Keybinds Modal -->
+    <!-- Intro Modal (Liquid Style) -->
     <div id="intro-modal">
         <div class="modal-content">
             <h1>The Game of Life</h1>
-            <div class="subtitle">Infinite Canvas Automaton</div>
+            <div class="subtitle">Conway's Cellular Automaton</div>
             
             <div class="keybind-grid">
-                <!-- Desktop Controls -->
-                <div class="keybind-header">Desktop / Laptop</div>
                 <div class="keybind-row">
-                    <span>Draw / Erase</span>
+                    <span>Draw / Delete</span>
                     <span class="key-badge">LMB</span>
                 </div>
                 <div class="keybind-row">
-                    <span>Pan View</span>
-                    <span class="key-badge">MMB / Space+Drag</span>
+                    <span>Move Canvas</span>
+                    <span class="key-badge">MMB + Drag</span>
                 </div>
                 <div class="keybind-row">
                     <span>Zoom</span>
-                    <span class="key-badge">Scroll / 2-Finger</span>
-                </div>
-
-                <!-- Mobile Controls -->
-                <div class="keybind-header" style="margin-top:15px;">Touch / Mobile</div>
-                <div class="keybind-row">
-                    <span>Draw</span>
-                    <span class="key-badge">1 Finger Tap</span>
-                </div>
-                <div class="keybind-row">
-                    <span>Pan & Zoom</span>
-                    <span class="key-badge">2 Fingers</span>
+                    <span class="key-badge">Scroll</span>
                 </div>
             </div>
 
-            <button class="primary-btn" id="startBtn">Start Simulation</button>
+            <button class="primary-btn" id="startBtn">Start</button>
         </div>
     </div>
 
@@ -60,24 +45,9 @@
                 <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             </button>
 
-            <button class="control-btn danger" id="clearBtn" title="Clear Grid">
+            <button class="control-btn danger" id="clearBtn" title="Alles löschen">
                 <svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
             </button>
-
-            <!-- Brush Control -->
-            <div class="brush-container">
-                <button class="control-btn" id="brushBtn" title="Brush Size">
-                    <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12c.4-.4.4-1.03.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
-                </button>
-                
-                <div id="brush-menu">
-                    <label>Size (px)</label>
-                    <div class="brush-input-wrapper">
-                        <input type="range" id="brushSlider" min="1" max="50" value="1">
-                        <input type="number" id="brushInput" min="1" max="50" value="1">
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="divider"></div>
