@@ -8,6 +8,13 @@ let isPlaying = false;
 let simulationSpeed = 1;
 let lastTickTime = 0;
 
+const renderCache = {
+    width: 0,
+    height: 0,
+    spotlight: null,
+    vignette: null
+};
+
 // Viewport: Control zoom level and scroll position
 let scale = 20;
 let offsetX = 0, offsetY = 0;
@@ -91,23 +98,8 @@ function tick() {
     draw();
 }
 
-// --- High Performance Rendering ---
-
-/**
- * Persistent cache to avoid recreating expensive objects (gradients) 
- * every frame unless the canvas size changes.
- */
-const renderCache = {
-    width: 0,
-    height: 0,
-    spotlight: null,
-    vignette: null
-};
-
 function draw() {
-    // ---------------------------------------------------------
     // 1. CACHE UPDATE: Only recalculate gradients if dimensions change
-    // ---------------------------------------------------------
     if (renderCache.width !== width || renderCache.height !== height) {
         renderCache.width = width;
         renderCache.height = height;
@@ -116,48 +108,38 @@ function draw() {
         const centerY = height / 2;
         const maxDim = Math.max(width, height);
 
-        // Pre-calculate Spotlight Gradient
         const spot = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxDim * 0.5);
-        spot.addColorStop(0, '#1a1a1a'); // Inner light
-        spot.addColorStop(1, '#0a0a0a'); // Outer dark
+        spot.addColorStop(0, '#1a1a1a'); 
+        spot.addColorStop(1, '#0a0a0a'); 
         renderCache.spotlight = spot;
 
-        // Pre-calculate Vignette Gradient
         const vig = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxDim * 0.7);
-        vig.addColorStop(0, 'rgba(0, 0, 0, 0)');      // Transparent center
-        vig.addColorStop(0.3, 'rgba(0, 0, 0, 0)');    // Keep center clear
-        vig.addColorStop(0.8, 'rgba(10, 10, 10, 0.7)'); // Fade to dark
-        vig.addColorStop(1, '#000000');               // Solid black edges
+        vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        vig.addColorStop(0.3, 'rgba(0, 0, 0, 0)');
+        vig.addColorStop(0.8, 'rgba(10, 10, 10, 0.7)');
+        vig.addColorStop(1, '#000000');
         renderCache.vignette = vig;
     }
 
-    // ---------------------------------------------------------
     // 2. BACKGROUND & SPOTLIGHT
-    // ---------------------------------------------------------
     ctx.fillStyle = renderCache.spotlight;
     ctx.fillRect(0, 0, width, height);
 
-    // ---------------------------------------------------------
     // 3. GRID LINES
-    // ---------------------------------------------------------
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#252525';
     
-    // Calculate visible range (clamping viewport)
-    // Using bitwise '| 0' as a faster alternative to Math.floor
     const startCol = ((-offsetX) / scale) | 0;
     const endCol = (startCol + (width / scale) + 1) | 0;
     const startRow = ((-offsetY) / scale) | 0;
     const endRow = (startRow + (height / scale) + 1) | 0;
 
     ctx.beginPath();
-    // Vertical lines
     for (let x = startCol; x <= endCol; x++) {
-        const sx = ((x * scale + offsetX) | 0) + 0.5; // +0.5 prevents sub-pixel blurring
+        const sx = ((x * scale + offsetX) | 0) + 0.5;
         ctx.moveTo(sx, 0); 
         ctx.lineTo(sx, height);
     }
-    // Horizontal lines
     for (let y = startRow; y <= endRow; y++) {
         const sy = ((y * scale + offsetY) | 0) + 0.5;
         ctx.moveTo(0, sy); 
@@ -165,60 +147,44 @@ function draw() {
     }
     ctx.stroke();
 
-    // ---------------------------------------------------------
     // 4. CELLS (BATCH RENDERING)
-    // ---------------------------------------------------------
     ctx.fillStyle = '#FFFFFF';
     
-    // Performance: Only apply shadow if scale is large enough to see it
     const applyShadow = scale > 10;
     if (applyShadow) {
         ctx.shadowBlur = 10;
         ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
     }
 
-    // Performance: Begin ONE path for all cells to minimize Draw Calls
     ctx.beginPath();
-    
     const cellSize = scale - 1;
     const useRoundRect = scale > 4;
 
     for (const key of liveCells) {
-        // High-speed parsing: indexOf/substring is faster than .split().map() 
-        // because it avoids creating unnecessary temporary arrays.
         const commaIndex = key.indexOf(',');
-        const gx = +key.substring(0, commaIndex); // '+' operator converts string to number
+        const gx = +key.substring(0, commaIndex);
         const gy = +key.substring(commaIndex + 1);
 
-        // Culling: Skip cells outside the current view
         if (gx < startCol || gx > endCol || gy < startRow || gy > endRow) continue;
 
         const screenX = (gx * scale + offsetX) | 0;
         const screenY = (gy * scale + offsetY) | 0;
 
         if (useRoundRect) {
-            // Add rounded rect to the current path
             ctx.roundRect(screenX + 1, screenY + 1, cellSize - 1, cellSize - 1, 2);
         } else {
-            // Add standard rect to the current path
             ctx.rect(screenX, screenY, cellSize, cellSize);
         }
     }
-    
-    // Execute drawing all cells at once
     ctx.fill();
 
-    // Reset shadow state for subsequent operations
-    if (applyShadow) {
-        ctx.shadowBlur = 0;
-    }
+    if (applyShadow) ctx.shadowBlur = 0;
 
-    // ---------------------------------------------------------
     // 5. VIGNETTE OVERLAY
-    // ---------------------------------------------------------
     ctx.fillStyle = renderCache.vignette;
     ctx.fillRect(0, 0, width, height);
 }
+
 
 function loop(timestamp) {
     if (isPlaying) {
