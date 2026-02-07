@@ -152,7 +152,7 @@ function draw() {
 
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
-
+}
 
 // --- Loop ---
 
