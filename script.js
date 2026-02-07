@@ -130,20 +130,24 @@ function draw() {
         }
     }
 
-// 4. Vignette (Strong Fade to Black)
-    const radius = Math.max(width, height) * 0.75; 
+// 4. Vignette (Aggressive Spotlight)
+    // Reduced radius multiplier to 0.6 to force darkness onscreen
+    const radius = Math.max(width, height) * 0.6; 
 
     const gradient = ctx.createRadialGradient(
         width / 2, height / 2, 0,           
         width / 2, height / 2, radius       
     );
     
-    // Center: Transparent
+    // 0% - 20%: Clear center
     gradient.addColorStop(0, 'rgba(18, 18, 18, 0)');
-    gradient.addColorStop(0.4, 'rgba(18, 18, 18, 0)'); 
+    gradient.addColorStop(0.2, 'rgba(18, 18, 18, 0)'); 
     
-    // Edges: Fade to solid background, then pitch black
-    gradient.addColorStop(0.85, '#121212'); 
+    // 60%: Semi-dark (starts hiding grid)
+    gradient.addColorStop(0.6, 'rgba(18, 18, 18, 0.5)');
+
+    // 90% - 100%: Solid background to Pitch Black
+    gradient.addColorStop(0.9, '#121212'); 
     gradient.addColorStop(1, '#000000'); 
 
     ctx.fillStyle = gradient;
