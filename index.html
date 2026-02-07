@@ -2,11 +2,13 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Viewport Fix for Mobile: No scaling allowed -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game of Life | Infinite Canvas</title>
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
-    <link rel="icon" href="icon.png" type="image/png">
+    <!-- Simple Favicon to prevent 404s -->
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
 </head>
 <body>
 
@@ -14,20 +16,33 @@
     <div id="intro-modal">
         <div class="modal-content">
             <h1>The Game of Life</h1>
-            <div class="subtitle">Conway's Cellular Automaton</div>
+            <div class="subtitle">Infinite Canvas Automaton</div>
             
             <div class="keybind-grid">
+                <!-- PC Controls -->
+                <div class="keybind-header">Desktop</div>
                 <div class="keybind-row">
                     <span>Draw / Erase</span>
                     <span class="key-badge">LMB</span>
                 </div>
                 <div class="keybind-row">
                     <span>Move Canvas</span>
-                    <span class="key-badge">MMB + Drag</span>
+                    <span class="key-badge">MMB</span>
                 </div>
                 <div class="keybind-row">
                     <span>Zoom</span>
                     <span class="key-badge">Scroll</span>
+                </div>
+
+                <!-- Mobile Controls -->
+                <div class="keybind-header" style="margin-top:15px;">Touch / Mobile</div>
+                <div class="keybind-row">
+                    <span>Draw</span>
+                    <span class="key-badge">1 Finger</span>
+                </div>
+                <div class="keybind-row">
+                    <span>Move & Zoom</span>
+                    <span class="key-badge">2 Fingers</span>
                 </div>
             </div>
 
@@ -50,7 +65,7 @@
                 <svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
             </button>
 
-            <!-- Brush Control (Eingefügt) -->
+            <!-- Brush Control -->
             <div class="brush-container">
                 <button class="control-btn" id="brushBtn" title="Brush Size">
                     <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12c.4-.4.4-1.03.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
@@ -64,7 +79,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
 
         <div class="divider"></div>
